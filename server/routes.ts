@@ -7,8 +7,8 @@ import path from "path";
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
   
-  // Create WebSocket server on /ws path (different from Vite HMR)
-  const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
+  // Create WebSocket server on /api/lesson-stream path (avoiding Vite's /ws HMR)
+  const wss = new WebSocketServer({ server: httpServer, path: '/api/lesson-stream' });
   
   wss.on('connection', (ws: WebSocket) => {
     console.log('WebSocket client connected');
