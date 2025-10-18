@@ -1,0 +1,152 @@
+Project Goal: Convert my existing Streamlit-based LangGraph Visual Learning Assistant into a professional full-stack application using React (frontend) and FastAPI (backend) that demonstrates our AI-powered educational technology to investors.
+
+Core Requirements:
+
+Frontend (React with TypeScript):
+
+Create a modern, responsive React dashboard with educational technology aesthetics
+
+Implement these main sections:
+
+Learning Dashboard - Main content generation interface (current system)
+
+Future Features Preview - Mockups of roadmap generation and dual-agent system
+
+Progress Analytics - Learning journey visualization
+
+Knowledge Management - Notion integration preview
+
+Key UI Components to Build:
+
+Topic input with age/knowledge level selectors
+
+Real-time progress visualization with animated workflow nodes
+
+Parallel content streaming display with vision-analyzed images
+
+Interactive quiz component with answer validation
+
+Feature roadmap visualization (mockup)
+
+Dual-agent system demo interface (partial implementation)
+
+Backend (FastAPI):
+
+Convert existing LangGraph workflow to FastAPI endpoints
+
+Implement WebSocket support for real-time content streaming
+
+Add session management for learning continuity
+
+Create mock endpoints for future features (roadmap generation, dual-agent system)
+
+Add basic analytics tracking
+
+Technology Stack:
+
+Frontend: React 18, TypeScript, Tailwind CSS, Framer Motion, React Query
+
+Backend: FastAPI, WebSockets, LangChain, LangGraph, Gemini API
+
+State Management: Zustand or Redux Toolkit
+
+API Communication: Axios + WebSockets
+
+Critical Features to Implement:
+
+1. Current System (Full Implementation):
+
+LangGraph workflow orchestration
+
+Vision AI image analysis and content generation
+
+Real-time streaming with WebSockets
+
+Downloadable learning packages
+
+2. Future Features (Mockups/Partial Implementation):
+
+Roadmap Generation: Visual learning path with milestones
+
+Dual-Agent System: Basic teaching/query agent toggle
+
+Notion Integration: Mock sync interface
+
+Context Preservation: Demo of uninterrupted learning flow
+
+Visual Design Requirements:
+
+Educational technology color scheme (blues, purples, professional gradients)
+
+Smooth animations for workflow progression
+
+Card-based layout for learning modules
+
+Progress tracking visualization
+
+Professional typography and spacing
+
+API Endpoints to Create:
+
+POST /api/generate-lesson - Start lesson generation
+
+WS /ws/lesson-progress - Real-time updates
+
+GET /api/lesson/{id} - Retrieve lesson data
+
+POST /api/generate-roadmap - Mock roadmap generation
+
+POST /api/ask-question - Dual-agent demo endpoint
+
+File Structure:
+
+text
+frontend/
+  ├── src/
+  │   ├── components/
+  │   │   ├── Dashboard/
+  │   │   ├── WorkflowVisualizer/
+  │   │   ├── ContentStreamer/
+  │   │   ├── FutureFeatures/
+  │   │   └── Analytics/
+  │   ├── hooks/
+  │   ├── stores/
+  │   └── types/
+backend/
+  ├── app/
+  │   ├── api/
+  │   ├── core/
+  │   ├── models/
+  │   └── workflows/
+  └── requirements.txt
+Implementation Priority:
+
+Phase 1: Basic React dashboard + FastAPI backend with current system
+
+Phase 2: Real-time streaming and vision analysis
+
+Phase 3: Future features mockups and professional polish
+
+Phase 4: Investor demo optimizations and error handling
+
+Success Criteria:
+
+Professional appearance that impresses investors
+
+Functional core LangGraph workflow
+
+Clear demonstration of future vision
+
+Smooth user experience with real-time feedback
+
+Scalable architecture that suggests enterprise readiness
+
+Additional Notes:
+
+Use my existing Streamlit code as reference for the LangGraph workflow logic
+
+Focus on creating a "wow factor" with smooth animations and professional UI
+
+Include placeholder data for future features to show product vision
+
+Ensure the demo can handle common educational topics smoothly
