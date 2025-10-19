@@ -1,4 +1,4 @@
-import { CheckCircle2, Circle, Loader2 } from "lucide-react";
+import { CheckCircle2, Circle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import type { WorkflowStage } from "@shared/schema";
 
@@ -43,23 +43,48 @@ export function WorkflowVisualizer({ currentStage }: Props) {
             return (
               <div key={node.id} className="flex-1 flex items-center gap-2">
                 <div className="flex flex-col items-center gap-2 flex-1">
-                  {/* Node Circle */}
-                  <div className={`
-                    relative flex h-12 w-12 items-center justify-center rounded-full border-2 transition-all duration-500
-                    ${isCompleted 
-                      ? 'border-chart-3 bg-chart-3/20' 
-                      : isCurrent 
-                        ? 'border-primary bg-primary/20 animate-pulse-subtle'
-                        : 'border-muted bg-muted/20'
-                    }
-                  `}>
-                    {isCompleted ? (
-                      <CheckCircle2 className="h-6 w-6 text-chart-3" />
-                    ) : isCurrent ? (
-                      <Loader2 className="h-6 w-6 text-primary animate-spin" />
-                    ) : (
-                      <Circle className="h-6 w-6 text-muted-foreground" />
+                  {/* Node Circle with Spinning Border */}
+                  <div className="relative flex h-16 w-16 items-center justify-center">
+                    {/* Spinning rings - USING TAILWIND ANIMATIONS */}
+                    {isCurrent && (
+                      <>
+                        <div 
+                          className="animate-spin absolute inset-0 rounded-full border-[3px] border-transparent"
+                          style={{
+                            borderTopColor: 'hsl(var(--primary))',
+                            borderRightColor: 'hsl(var(--primary))',
+                          }}
+                        />
+                        <div 
+                          className="animate-spin absolute inset-1 rounded-full border-2 border-transparent"
+                          style={{
+                            animationDirection: 'reverse',
+                            animationDuration: '1.5s',
+                            borderBottomColor: 'hsl(var(--primary) / 0.5)',
+                            borderLeftColor: 'hsl(var(--primary) / 0.5)',
+                          }}
+                        />
+                      </>
                     )}
+                    
+                    {/* Main circle */}
+                    <div className={`
+                      relative z-10 flex h-12 w-12 items-center justify-center rounded-full border-2 transition-all duration-500
+                      ${isCompleted 
+                        ? 'border-chart-3 bg-chart-3/20' 
+                        : isCurrent 
+                          ? 'border-primary/30 bg-primary/10'
+                          : 'border-muted bg-muted/20'
+                      }
+                    `}>
+                      {isCompleted ? (
+                        <CheckCircle2 className="h-6 w-6 text-chart-3" />
+                      ) : isCurrent ? (
+                        <div className="animate-pulse h-3 w-3 rounded-full bg-primary" />
+                      ) : (
+                        <Circle className="h-6 w-6 text-muted-foreground" />
+                      )}
+                    </div>
                   </div>
 
                   {/* Label */}

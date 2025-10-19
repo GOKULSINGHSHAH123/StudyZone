@@ -5,9 +5,15 @@ import json
 import base64
 import io
 from typing import List, Dict, Optional, TypedDict
-from flask import Flask, request
-from flask_cors import CORS
+from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 from PIL import Image
+import dotenv
+
+# Load environment variables
+dotenv.load_dotenv()
 
 # LangChain and LangGraph imports
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -22,20 +28,44 @@ SEARCH_ENGINE_ID = os.getenv("SEARCH_ENGINE_ID")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 NUM_IMAGES_PER_QUERY = 5
 
+# Initialize FastAPI app
+app = FastAPI(title="Educational Content Generator API")
+
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # Initialize LLMs
 llm = ChatGoogleGenerativeAI(
-    model="gemini-2.0-flash-exp",
+    model="gemini-2.5-flash-lite",
     google_api_key=GEMINI_API_KEY,
     streaming=True,
     temperature=0.7
 )
 
 vision_llm = ChatGoogleGenerativeAI(
-    model="gemini-2.0-flash-exp",
+    model="gemini-2.5-flash-lite",
     google_api_key=GEMINI_API_KEY,
     temperature=0.3
 )
 
+# Pydantic models for request/response
+class LessonRequest(BaseModel):
+    topic: str
+    age_group: str
+    knowledge_level: str
+
+class ContentStreamRequest(BaseModel):
+    point: Dict
+    topic: str
+    age_group: str
+    knowledge_level: str
+    analyzed_description: str = ""
 
 # State Definition
 class LessonState(TypedDict):
@@ -86,7 +116,9 @@ class AsyncImageProcessor:
                     data = await response.json()
                     items = data.get("items", [])
                     return [item.get("link", "") for item in items if item.get("link")]
-                return []
+                else:
+                    print(f"Search API error: {response.status}")
+                    return []
         except Exception as e:
             print(f"Image search error: {e}")
             return []
@@ -101,7 +133,8 @@ class AsyncImageProcessor:
                     max_size = (800, 800)
                     img.thumbnail(max_size, Image.Resampling.LANCZOS)
                     return img
-        except Exception:
+        except Exception as e:
+            print(f"Download error for {url}: {e}")
             return None
         return None
 
@@ -208,6 +241,61 @@ def create_quiz_generator_chain():
     
     return prompt | llm | StrOutputParser()
 
+# Add this new chain function after create_quiz_generator_chain()
+def create_roadmap_generator_chain():
+    """Create roadmap generation chain"""
+    prompt = ChatPromptTemplate.from_template("""
+    Create a comprehensive learning roadmap for: '{topic}'
+    
+    Return a JSON object with this exact structure:
+    {{
+      "topic": "{topic}",
+      "description": "Brief overview of what this learning path covers (2-3 sentences)",
+      "totalDuration": "Estimated total time (e.g., '6-8 months')",
+      "prerequisites": ["prerequisite 1", "prerequisite 2", "prerequisite 3"],
+      "phases": [
+        {{
+          "phase": "Phase 1",
+          "title": "Phase title describing what will be learned",
+          "duration": "Time needed for this phase (e.g., '4-6 weeks')",
+          "topics": [
+            "Specific topic or skill 1",
+            "Specific topic or skill 2",
+            "Specific topic or skill 3",
+            "Specific topic or skill 4",
+            "Specific topic or skill 5"
+          ],
+          "resources": ["Resource type 1", "Resource type 2", "Resource type 3"]
+        }}
+      ],
+      "careerPaths": [
+        "Career option 1",
+        "Career option 2",
+        "Career option 3",
+        "Career option 4"
+      ]
+    }}
+    
+    Guidelines:
+    - Create 4-6 phases that progress from beginner to advanced
+    - Each phase should have 5-8 specific, actionable topics
+    - Include practical skills and theoretical knowledge
+    - Suggest 2-4 resource types per phase (courses, books, projects, etc.)
+    - List 4-6 realistic career opportunities
+    - Make the roadmap comprehensive but achievable
+    - Ensure topics within each phase are logically sequenced
+    
+    Return ONLY valid JSON, no markdown formatting or code blocks.
+    """)
+    
+    return prompt | llm | JsonOutputParser()
+
+
+# Add this new Pydantic model after ContentStreamRequest
+class RoadmapRequest(BaseModel):
+    topic: str
+
+
 
 # LangGraph Nodes
 async def lesson_planning_node(state: LessonState) -> LessonState:
@@ -229,13 +317,13 @@ async def lesson_planning_node(state: LessonState) -> LessonState:
     except Exception as e:
         return {
             **state,
-            "errors": state["errors"] + [f"Lesson planning error: {e}"]
+            "errors": state.get("errors", []) + [f"Lesson planning error: {e}"]
         }
 
 
 async def image_search_node(state: LessonState) -> LessonState:
     """Node 2: Search for images in parallel"""
-    if not state["key_points"]:
+    if not state.get("key_points"):
         return state
         
     try:
@@ -263,13 +351,13 @@ async def image_search_node(state: LessonState) -> LessonState:
     except Exception as e:
         return {
             **state,
-            "errors": state["errors"] + [f"Image search error: {e}"]
+            "errors": state.get("errors", []) + [f"Image search error: {e}"]
         }
 
 
 async def image_processing_node(state: LessonState) -> LessonState:
     """Node 3: Download, process AND ANALYZE images with vision"""
-    if not state["images_data"]:
+    if not state.get("images_data"):
         return state
         
     try:
@@ -279,7 +367,7 @@ async def image_processing_node(state: LessonState) -> LessonState:
             
             for point_title, image_info in state["images_data"].items():
                 urls = image_info.get("urls", [])
-                for url in urls[:2]:
+                for url in urls[:2]:  # Limit to 2 URLs per point
                     processing_tasks.append(processor.download_image(url))
                     url_to_point[len(processing_tasks) - 1] = (point_title, url)
             
@@ -306,7 +394,7 @@ async def image_processing_node(state: LessonState) -> LessonState:
                         updated_images_data[point_title]["best_image"] = {
                             "url": url,
                             "score": 85,
-                            "image": img
+                            "image": img  # Temporary for analysis
                         }
         
         # Analyze images with vision model
@@ -315,7 +403,9 @@ async def image_processing_node(state: LessonState) -> LessonState:
         
         for point in state["key_points"]:
             point_title = point["point_title"]
-            if point_title in updated_images_data and updated_images_data[point_title].get("best_image"):
+            if (point_title in updated_images_data and 
+                updated_images_data[point_title].get("best_image") and 
+                updated_images_data[point_title]["best_image"].get("image")):
                 analysis_tasks.append(
                     analyze_image_with_vision(
                         updated_images_data[point_title]["best_image"]["image"],
@@ -334,7 +424,7 @@ async def image_processing_node(state: LessonState) -> LessonState:
                 if isinstance(analysis_results[i], str) and analysis_results[i]:
                     analyzed_descriptions[point_title] = analysis_results[i]
         
-        # Remove image objects before returning (can't serialize)
+        # Remove image objects before returning (can't serialize PIL images)
         for point_title in updated_images_data:
             if updated_images_data[point_title].get("best_image"):
                 updated_images_data[point_title]["best_image"].pop("image", None)
@@ -348,7 +438,7 @@ async def image_processing_node(state: LessonState) -> LessonState:
     except Exception as e:
         return {
             **state,
-            "errors": state["errors"] + [f"Image processing error: {e}"]
+            "errors": state.get("errors", []) + [f"Image processing error: {e}"]
         }
 
 
@@ -362,7 +452,7 @@ async def content_generation_node(state: LessonState) -> LessonState:
 
 async def quiz_generation_node(state: LessonState) -> LessonState:
     """Node 5: Generate quiz"""
-    if not state["key_points"]:
+    if not state.get("key_points"):
         return state
         
     try:
@@ -382,7 +472,7 @@ async def quiz_generation_node(state: LessonState) -> LessonState:
     except Exception as e:
         return {
             **state,
-            "errors": state["errors"] + [f"Quiz generation error: {e}"]
+            "errors": state.get("errors", []) + [f"Quiz generation error: {e}"]
         }
 
 
@@ -415,32 +505,41 @@ class StreamingContentGenerator:
                                       knowledge_level: str, actual_image_description: str = ""):
         """Stream content generation with vision-analyzed descriptions"""
         try:
-            visual_info = actual_image_description if actual_image_description else point["visual_description"]
+            visual_info = actual_image_description if actual_image_description else point.get("visual_description", "")
             
             prompt = ChatPromptTemplate.from_template("""
-            You are creating educational content that teaches students to understand concepts by READING AND INTERPRETING the ACTUAL VISUAL SHOWN.
-            
+            You are creating educational content that teaches students by reading and interpreting the actual visual shown.
+
             Topic: {topic}
             Key Concept: {point_title}
             Audience: {age_group} with {knowledge_level} knowledge level
-            
+
             ACTUAL VISUAL PRESENT:
             {visual_info}
-            
-            Structure your response:
-            
-            **🎯 Explanation**
-            Provide 2-3 paragraphs introducing the concept.
-            
-            **👁️ Visual Guidance**
-            Guide students through the ACTUAL visual elements present.
-            
-            **💡 Key Takeaways**
-            Provide 3-4 bullet points.
-            
-            **🌍 Real-world Connection**
-            Provide 1-2 paragraphs showing real-life applications.
+
+            Structure your response in an engaging format:
+
+            🎯 **Explanation**
+            - Use short paragraphs.
+            - Include analogies or simple examples.
+
+            👁️ **Visual Guidance**
+            - Refer to specific elements in the visual.
+            - Use bullet points or numbered steps to describe flow.
+
+            💡 **Key Takeaways**
+            - Provide 3-4 bullet points.
+            - Highlight key words using **bold** or *italic*.
+
+            🌍 **Real-world Connection**
+            - Use 1-2 short paragraphs.
+            - Include practical examples or relatable scenarios.
+
+            ✨ Optional Tips:
+            - Include emojis to make sections visually distinct.
+            - Keep sentences short and easy to scan.
             """)
+
             
             chain = prompt | llm
             
@@ -458,10 +557,131 @@ class StreamingContentGenerator:
             yield f"\n\n⚠️ Error generating content: {e}"
 
 
-# Export for Node.js backend
+# FastAPI Routes
+@app.get("/")
+async def root():
+    return {"message": "Educational Content Generator API is running!"}
+
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "service": "educational-content-generator"}
+
+@app.post("/generate-lesson")
+async def generate_lesson(request: LessonRequest):
+    """Generate complete lesson with images and quiz"""
+    try:
+        workflow = create_workflow()
+        
+        initial_state = {
+            "topic": request.topic,
+            "age_group": request.age_group,
+            "knowledge_level": request.knowledge_level,
+            "lesson_plan": None,
+            "key_points": [],
+            "images_data": {},
+            "analyzed_descriptions": {},
+            "content_data": {},
+            "quiz": None,
+            "current_processing": "initializing",
+            "completed_points": [],
+            "errors": []
+        }
+        
+        final_state = None
+        async for state in workflow.astream(initial_state):
+            final_state = list(state.values())[0] if state else {}
+        
+        if not final_state:
+            raise HTTPException(status_code=500, detail="Workflow failed to produce results")
+        
+        # Clean up the response
+        response_data = {
+            "topic": final_state.get("topic"),
+            "age_group": final_state.get("age_group"),
+            "knowledge_level": final_state.get("knowledge_level"),
+            "lesson_plan": final_state.get("lesson_plan"),
+            "key_points": final_state.get("key_points", []),
+            "images_data": final_state.get("images_data", {}),
+            "analyzed_descriptions": final_state.get("analyzed_descriptions", {}),
+            "quiz": final_state.get("quiz"),
+            "errors": final_state.get("errors", [])
+        }
+        
+        return response_data
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lesson generation failed: {str(e)}")
+
+@app.post("/stream-content")
+async def stream_content(request: ContentStreamRequest):
+    """Stream content generation for a specific point"""
+    async def generate_content():
+        generator = StreamingContentGenerator()
+        async for chunk in generator.stream_content_for_point(
+            request.point,
+            request.topic,
+            request.age_group,
+            request.knowledge_level,
+            request.analyzed_description
+        ):
+            yield chunk
+    
+    return StreamingResponse(generate_content(), media_type="text/plain")
+
+# Add this new route after /stream-content
+@app.post("/generate-roadmap")
+async def generate_roadmap(request: RoadmapRequest):
+    """Generate a learning roadmap for a specific topic"""
+    try:
+        roadmap_chain = create_roadmap_generator_chain()
+        
+        roadmap = await roadmap_chain.ainvoke({
+            "topic": request.topic
+        })
+        
+        return {
+            "success": True,
+            "roadmap": roadmap
+        }
+        
+    except Exception as e:
+        print(f"Roadmap generation error: {e}")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Failed to generate roadmap: {str(e)}"
+        )
+
+@app.post("/test-workflow")
+async def test_workflow():
+    """Test endpoint to verify workflow functionality"""
+    try:
+        test_request = LessonRequest(
+            topic="Photosynthesis",
+            age_group="high school",
+            knowledge_level="beginner"
+        )
+        
+        result = await generate_lesson(test_request)
+        return {
+            "success": True,
+            "message": "Workflow test completed successfully",
+            "data": {
+                "topic": result["topic"],
+                "key_points_count": len(result["key_points"]),
+                "images_found": len(result["images_data"]),
+                "errors": result["errors"]
+            }
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+# Export for Node.js backend compatibility
 async def run_workflow_async(input_data):
-    """Run the complete workflow"""
-    app = create_workflow()
+    """Run the complete workflow (for external use)"""
+    workflow = create_workflow()
     
     initial_state = {
         "topic": input_data["topic"],
@@ -479,16 +699,20 @@ async def run_workflow_async(input_data):
     }
     
     final_state = None
-    async for state in app.astream(initial_state):
+    async for state in workflow.astream(initial_state):
         final_state = list(state.values())[0] if state else {}
     
     return final_state
 
-
 async def stream_content_async(point, topic, age_group, knowledge_level, analyzed_desc):
-    """Stream content for a single point"""
+    """Stream content for a single point (for external use)"""
     generator = StreamingContentGenerator()
     async for chunk in generator.stream_content_for_point(
         point, topic, age_group, knowledge_level, analyzed_desc
     ):
         yield chunk
+
+# Run the application
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=5000)

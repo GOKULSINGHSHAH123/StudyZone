@@ -108,6 +108,17 @@ export default {
           "0%": { backgroundPosition: "-1000px 0" },
           "100%": { backgroundPosition: "1000px 0" },
         },
+        // ADD THIS NEW GLOW ANIMATION
+        "glow": {
+          "0%, 100%": { 
+            boxShadow: "0 0 5px hsl(var(--primary)), 0 0 10px hsl(var(--primary))",
+            transform: "scale(1)",
+          },
+          "50%": { 
+            boxShadow: "0 0 20px hsl(var(--primary)), 0 0 30px hsl(var(--primary)), 0 0 40px hsl(var(--primary))",
+            transform: "scale(1.05)",
+          },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -115,6 +126,8 @@ export default {
         "pulse-subtle": "pulse-subtle 2s ease-in-out infinite",
         "slide-in": "slide-in 0.3s ease-out",
         "shimmer": "shimmer 2s linear infinite",
+        // ADD THIS NEW GLOW ANIMATION
+        "glow": "glow 2s ease-in-out infinite",
       },
     },
   },

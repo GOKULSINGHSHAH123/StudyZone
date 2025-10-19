@@ -326,3 +326,64 @@
     inset: -1px;
   }
 }
+
+/* Add this at the end of your index.css file, after the @layer utilities block */
+
+@keyframes spinner-rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pulse-dot {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(1.1);
+  }
+}
+
+.spinner-ring {
+  animation: spinner-rotate 1s linear infinite;
+}
+
+.spinner-ring-reverse {
+  animation: spinner-rotate 1.5s linear infinite reverse;
+}
+
+.pulse-dot {
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+/* Ensure Tailwind's animate-spin is available */
+.animate-spin {
+  animation: spinner-rotate 1s linear infinite;
+}
+
+.animate-pulse {
+  animation: pulse-dot 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.pulse-dot {
+  animation: pulse-dot 2s ease-in-out infinite;
+  box-shadow: 0 0 10px hsl(var(--primary) / 0.6);
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+/* Add to your CSS file or Tailwind config */
+.lesson-content {
+  white-space: pre-wrap;
+}
