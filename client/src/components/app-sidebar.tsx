@@ -47,7 +47,7 @@ export function AppSidebar({
               size="sm"
             >
               <Plus className="h-4 w-4 shrink-0" />
-              <span className="truncate">New Lesson</span>
+              <span className="truncate">New Chat </span>
             </Button>
           </SidebarMenuItem>
           <SidebarMenuItem>
@@ -58,7 +58,7 @@ export function AppSidebar({
               size="sm"
             >
               <Map className="h-4 w-4 shrink-0" />
-              <span className="truncate">Generate Roadmap</span>
+              <span className="truncate">Generate Lesson</span>
             </Button>
           </SidebarMenuItem>
         </SidebarMenu>

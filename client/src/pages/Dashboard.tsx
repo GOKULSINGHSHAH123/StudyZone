@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { BookOpen, Brain, Sparkles, ArrowLeft } from "lucide-react";
+import { BookOpen, Brain, Sparkles, ArrowLeft, Zap, Target, TrendingUp, Stars } from "lucide-react";
 import { lessonInputSchema, type LessonInput } from "@shared/schema";
 import { WorkflowVisualizer } from "@/components/WorkflowVisualizer";
 import { LessonDisplay } from "@/components/LessonDisplay";
@@ -24,7 +24,7 @@ interface LessonHistoryItem {
   date: Date;
   age_group: string;
   knowledge_level: string;
-  lessonState: any;
+  lessonState?: any;
 }
 
 export default function Dashboard() {
@@ -35,6 +35,7 @@ export default function Dashboard() {
   const [currentLessonId, setCurrentLessonId] = useState<string | undefined>();
   const [roadmapDialogOpen, setRoadmapDialogOpen] = useState(false);
   const [showRoadmap, setShowRoadmap] = useState(false);
+  const [tempLessonData, setTempLessonData] = useState<any>(null);
   
   const form = useForm<LessonInput>({
     resolver: zodResolver(lessonInputSchema),
@@ -47,6 +48,20 @@ export default function Dashboard() {
 
   const onSubmit = async (data: LessonInput) => {
     setIsGenerating(true);
+    
+    const immediateData = {
+      topic: data.topic,
+      age_group: data.age_group,
+      knowledge_level: data.knowledge_level,
+      current_processing: "pending",
+      lesson_plan: null,
+      learning_points: [],
+      quiz: null
+    };
+    
+    setTempLessonData(immediateData);
+    await new Promise(resolve => setTimeout(resolve, 50));
+    
     const lesson = await startLesson(data);
     
     const newLesson: LessonHistoryItem = {
@@ -60,6 +75,7 @@ export default function Dashboard() {
     
     setLessonHistory(prev => [newLesson, ...prev]);
     setCurrentLessonId(newLesson.id);
+    setTempLessonData(null);
     setIsGenerating(false);
   };
 
@@ -67,6 +83,7 @@ export default function Dashboard() {
     clearLesson();
     clearRoadmap();
     setShowRoadmap(false);
+    setTempLessonData(null);
     form.reset();
     setCurrentLessonId(undefined);
   };
@@ -74,6 +91,7 @@ export default function Dashboard() {
   const handleSelectLesson = (lesson: LessonHistoryItem) => {
     setCurrentLessonId(lesson.id);
     setShowRoadmap(false);
+    setTempLessonData(null);
   };
 
   const handleGenerateRoadmap = () => {
@@ -86,14 +104,17 @@ export default function Dashboard() {
       setShowRoadmap(true);
       clearLesson();
       setCurrentLessonId(undefined);
+      setTempLessonData(null);
     } catch (error) {
       console.error("Failed to generate roadmap:", error);
     }
   };
 
+  const displayState = tempLessonData || lessonState;
+
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full">
+      <div className="min-h-screen flex w-full bg-gradient-to-br from-background via-background to-primary/5">
         <AppSidebar
           lessonHistory={lessonHistory}
           onSelectLesson={handleSelectLesson}
@@ -103,64 +124,83 @@ export default function Dashboard() {
         />
 
         <SidebarInset className="flex-1">
-          <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-            <div className="flex h-16 items-center gap-4 px-8">
-              <SidebarTrigger />
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-chart-2">
-                  <Brain className="h-6 w-6 text-primary-foreground" />
+          <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60 shadow-sm">
+            <div className="flex h-20 items-center gap-4 px-8">
+              <SidebarTrigger className="hover:bg-primary/10 transition-colors" />
+              <div className="flex items-center gap-4">
+                <div className="relative">
+                  <div className="absolute inset-0 bg-gradient-to-br from-primary via-chart-2 to-primary rounded-xl blur-md opacity-50 animate-pulse" />
+                  <div className="relative flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary via-chart-2 to-primary shadow-lg">
+                    <Brain className="h-7 w-7 text-primary-foreground" />
+                  </div>
                 </div>
                 <div>
-                  <h1 className="text-xl font-bold">Visual Learning Assistant</h1>
-                  <p className="text-xs text-muted-foreground">Powered by AI & Vision Analysis</p>
+                  <h1 className="text-2xl font-bold leading-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
+                    Study Zone
+                  </h1>
+                  <p className="text-sm text-muted-foreground leading-tight flex items-center gap-1.5">
+                    <Sparkles className="h-3 w-3" />
+                    Powered by AI & Vision Analysis
+                  </p>
                 </div>
               </div>
-              <div className="ml-auto flex items-center gap-2">
-                <div className="flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1.5">
-                  <Sparkles className="h-3.5 w-3.5 text-primary" />
-                  <span className="text-xs font-medium text-primary">LangGraph Workflow</span>
+              <div className="ml-auto flex items-center gap-3">
+                <div className="group relative overflow-hidden rounded-full bg-gradient-to-r from-primary/20 via-chart-2/20 to-primary/20 p-[1px] hover:from-primary/30 hover:via-chart-2/30 hover:to-primary/30 transition-all">
+                  <div className="flex items-center gap-2 rounded-full bg-background px-4 py-2">
+                    <div className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+                    </div>
+                    <span className="text-sm font-semibold bg-gradient-to-r from-primary via-chart-2 to-primary bg-clip-text text-transparent">
+                      LangGraph Workflow
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
           </header>
 
-          <div className="container mx-auto px-8 py-12 max-w-7xl">
+          <div className="container mx-auto px-8 py-10 max-w-7xl">
             {showRoadmap && roadmap ? (
-              /* Roadmap View */
-              <div>
+              <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <Button
                   onClick={handleNewLesson}
                   variant="ghost"
-                  className="mb-6"
+                  className="mb-6 hover:bg-primary/10 transition-all group"
                 >
-                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  <ArrowLeft className="h-4 w-4 mr-2 group-hover:-translate-x-1 transition-transform" />
                   Back to Home
                 </Button>
                 <RoadmapDisplay roadmap={roadmap} />
               </div>
-            ) : !lessonState ? (
-              /* Input Form */
-              <div className="animate-slide-in">
+            ) : !displayState ? (
+              <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
                 <div className="mb-12 text-center">
-                  <h2 className="text-4xl font-bold mb-4 bg-gradient-to-r from-primary via-chart-2 to-primary bg-clip-text text-transparent">
+                  <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-2 mb-4">
+                    <Stars className="h-4 w-4 text-primary animate-pulse" />
+                    <span className="text-sm font-medium text-primary">AI-Powered Learning</span>
+                  </div>
+                  <h2 className="text-5xl font-bold mb-4 bg-gradient-to-r from-primary via-chart-2 to-chart-3 bg-clip-text text-transparent leading-tight animate-gradient">
                     Create Your Learning Experience
                   </h2>
-                  <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-                    Generate comprehensive lessons with AI-analyzed visuals, detailed explanations, and interactive quizzes
+                  <p className="text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
+                    Generate comprehensive lessons with AI-analyzed visuals, detailed explanations, and interactive quizzes tailored to your needs
                   </p>
                 </div>
 
-                <Card className="max-w-2xl mx-auto border-card-border">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <BookOpen className="h-5 w-5 text-primary" />
+                <Card className="max-w-2xl mx-auto border-2 border-primary/20 shadow-2xl hover:shadow-primary/20 transition-all duration-300 bg-gradient-to-br from-background via-background to-primary/5">
+                  <CardHeader className="pb-6 space-y-3">
+                    <CardTitle className="flex items-center gap-3 text-2xl">
+                      <div className="p-2 rounded-lg bg-primary/10">
+                        <BookOpen className="h-6 w-6 text-primary" />
+                      </div>
                       Learning Configuration
                     </CardTitle>
-                    <CardDescription>
-                      Tell us what you want to learn and we'll create a personalized lesson plan
+                    <CardDescription className="text-base">
+                      Tell us what you want to learn and we'll create a personalized lesson plan just for you
                     </CardDescription>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="pt-0">
                     <Form {...form}>
                       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                         <FormField
@@ -168,13 +208,13 @@ export default function Dashboard() {
                           name="topic"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Topic</FormLabel>
+                              <FormLabel className="text-base font-semibold">Topic</FormLabel>
                               <FormControl>
                                 <Input
                                   placeholder="e.g., Photosynthesis, Machine Learning, Ancient Rome..."
                                   {...field}
                                   data-testid="input-topic"
-                                  className="bg-background/50"
+                                  className="h-12 bg-background/50 border-2 focus:border-primary transition-colors text-base"
                                 />
                               </FormControl>
                               <FormMessage />
@@ -187,19 +227,22 @@ export default function Dashboard() {
                           name="age_group"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Age Group</FormLabel>
+                              <FormLabel className="text-base font-semibold">Age Group</FormLabel>
                               <Select onValueChange={field.onChange} defaultValue={field.value}>
                                 <FormControl>
-                                  <SelectTrigger data-testid="select-age-group" className="bg-background/50">
+                                  <SelectTrigger 
+                                    data-testid="select-age-group" 
+                                    className="h-12 bg-background/50 border-2 focus:border-primary transition-colors text-base"
+                                  >
                                     <SelectValue placeholder="Select age group" />
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                  <SelectItem value="Elementary School">Elementary School</SelectItem>
-                                  <SelectItem value="Middle School">Middle School</SelectItem>
-                                  <SelectItem value="High School">High School</SelectItem>
-                                  <SelectItem value="College">College</SelectItem>
-                                  <SelectItem value="Adult Learner">Adult Learner</SelectItem>
+                                  <SelectItem value="Elementary School">🎒 Elementary School</SelectItem>
+                                  <SelectItem value="Middle School">📚 Middle School</SelectItem>
+                                  <SelectItem value="High School">🎓 High School</SelectItem>
+                                  <SelectItem value="College">🏛️ College</SelectItem>
+                                  <SelectItem value="Adult Learner">👔 Adult Learner</SelectItem>
                                 </SelectContent>
                               </Select>
                               <FormMessage />
@@ -212,17 +255,20 @@ export default function Dashboard() {
                           name="knowledge_level"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Knowledge Level</FormLabel>
+                              <FormLabel className="text-base font-semibold">Knowledge Level</FormLabel>
                               <Select onValueChange={field.onChange} defaultValue={field.value}>
                                 <FormControl>
-                                  <SelectTrigger data-testid="select-knowledge-level" className="bg-background/50">
+                                  <SelectTrigger 
+                                    data-testid="select-knowledge-level" 
+                                    className="h-12 bg-background/50 border-2 focus:border-primary transition-colors text-base"
+                                  >
                                     <SelectValue placeholder="Select knowledge level" />
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                  <SelectItem value="Beginner">Beginner</SelectItem>
-                                  <SelectItem value="Intermediate">Intermediate</SelectItem>
-                                  <SelectItem value="Advanced">Advanced</SelectItem>
+                                  <SelectItem value="Beginner">🌱 Beginner</SelectItem>
+                                  <SelectItem value="Intermediate">🌿 Intermediate</SelectItem>
+                                  <SelectItem value="Advanced">🌳 Advanced</SelectItem>
                                 </SelectContent>
                               </Select>
                               <FormMessage />
@@ -232,19 +278,18 @@ export default function Dashboard() {
 
                         <Button
                           type="submit"
-                          className="w-full"
-                          size="lg"
+                          className="w-full h-14 text-lg font-semibold bg-gradient-to-r from-primary via-chart-2 to-primary hover:opacity-90 transition-all shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98]"
                           disabled={isGenerating}
                           data-testid="button-generate"
                         >
                           {isGenerating ? (
                             <>
-                              <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent mr-2" />
-                              Generating...
+                              <div className="h-5 w-5 animate-spin rounded-full border-3 border-current border-t-transparent mr-3" />
+                              Generating Your Lesson...
                             </>
                           ) : (
                             <>
-                              <Sparkles className="h-4 w-4 mr-2" />
+                              <Sparkles className="h-5 w-5 mr-3 animate-pulse" />
                               Generate Learning Experience
                             </>
                           )}
@@ -254,81 +299,112 @@ export default function Dashboard() {
                   </CardContent>
                 </Card>
 
-                <div className="mt-16 grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
-                  <Card className="hover-elevate border-card-border">
-                    <CardHeader>
-                      <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center mb-2">
-                        <Brain className="h-6 w-6 text-primary" />
+                <div className="mt-16 grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+                  <Card className="group hover:shadow-2xl transition-all duration-300 border-2 hover:border-primary/50 cursor-pointer hover:-translate-y-2 bg-gradient-to-br from-background to-primary/5">
+                    <CardHeader className="pb-4">
+                      <div className="relative mb-4">
+                        <div className="absolute inset-0 bg-primary/20 rounded-xl blur-lg group-hover:blur-xl transition-all" />
+                        <div className="relative h-14 w-14 rounded-xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-lg">
+                          <Brain className="h-7 w-7 text-primary-foreground" />
+                        </div>
                       </div>
-                      <CardTitle className="text-lg">AI Lesson Planning</CardTitle>
+                      <CardTitle className="text-xl leading-tight">AI Lesson Planning</CardTitle>
                     </CardHeader>
-                    <CardContent>
-                      <p className="text-sm text-muted-foreground">
-                        Intelligent curriculum generation tailored to your age group and knowledge level
+                    <CardContent className="pt-0">
+                      <p className="text-base text-muted-foreground leading-relaxed">
+                        Intelligent curriculum generation tailored to your age group and knowledge level with adaptive learning paths
                       </p>
                     </CardContent>
                   </Card>
 
-                  <Card className="hover-elevate border-card-border">
-                    <CardHeader>
-                      <div className="h-12 w-12 rounded-lg bg-chart-2/10 flex items-center justify-center mb-2">
-                        <Sparkles className="h-6 w-6 text-chart-2" />
+                  <Card className="group hover:shadow-2xl transition-all duration-300 border-2 hover:border-chart-2/50 cursor-pointer hover:-translate-y-2 bg-gradient-to-br from-background to-chart-2/5">
+                    <CardHeader className="pb-4">
+                      <div className="relative mb-4">
+                        <div className="absolute inset-0 bg-chart-2/20 rounded-xl blur-lg group-hover:blur-xl transition-all" />
+                        <div className="relative h-14 w-14 rounded-xl bg-gradient-to-br from-chart-2 to-chart-2/70 flex items-center justify-center shadow-lg">
+                          <Sparkles className="h-7 w-7 text-primary-foreground" />
+                        </div>
                       </div>
-                      <CardTitle className="text-lg">Vision Analysis</CardTitle>
+                      <CardTitle className="text-xl leading-tight">Vision Analysis</CardTitle>
                     </CardHeader>
-                    <CardContent>
-                      <p className="text-sm text-muted-foreground">
-                        Images analyzed by AI to generate accurate, detailed visual explanations
+                    <CardContent className="pt-0">
+                      <p className="text-base text-muted-foreground leading-relaxed">
+                        Images analyzed by advanced AI to generate accurate, detailed visual explanations and contextual insights
                       </p>
                     </CardContent>
                   </Card>
 
-                  <Card className="hover-elevate border-card-border">
-                    <CardHeader>
-                      <div className="h-12 w-12 rounded-lg bg-chart-3/10 flex items-center justify-center mb-2">
-                        <BookOpen className="h-6 w-6 text-chart-3" />
+                  <Card className="group hover:shadow-2xl transition-all duration-300 border-2 hover:border-chart-3/50 cursor-pointer hover:-translate-y-2 bg-gradient-to-br from-background to-chart-3/5">
+                    <CardHeader className="pb-4">
+                      <div className="relative mb-4">
+                        <div className="absolute inset-0 bg-chart-3/20 rounded-xl blur-lg group-hover:blur-xl transition-all" />
+                        <div className="relative h-14 w-14 rounded-xl bg-gradient-to-br from-chart-3 to-chart-3/70 flex items-center justify-center shadow-lg">
+                          <Target className="h-7 w-7 text-primary-foreground" />
+                        </div>
                       </div>
-                      <CardTitle className="text-lg">Interactive Quizzes</CardTitle>
+                      <CardTitle className="text-xl leading-tight">Interactive Quizzes</CardTitle>
                     </CardHeader>
-                    <CardContent>
-                      <p className="text-sm text-muted-foreground">
-                        Test your understanding with AI-generated questions and detailed explanations
+                    <CardContent className="pt-0">
+                      <p className="text-base text-muted-foreground leading-relaxed">
+                        Test your understanding with AI-generated questions, instant feedback, and detailed explanations
                       </p>
                     </CardContent>
                   </Card>
                 </div>
+
+                <div className="mt-12 text-center">
+                  <div className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+                    <Zap className="h-4 w-4 text-primary" />
+                    <span>Powered by cutting-edge AI technology</span>
+                  </div>
+                </div>
               </div>
             ) : (
-              /* Lesson Content */
-              <div className="space-y-8 animate-slide-in">
-                <div className="flex items-center justify-between">
+              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="flex items-center justify-between p-6 rounded-2xl bg-gradient-to-r from-primary/10 via-chart-2/10 to-primary/10 border-2 border-primary/20">
                   <div>
-                    <h2 className="text-3xl font-bold">{lessonState.topic}</h2>
-                    <p className="text-muted-foreground mt-1">
-                      {lessonState.age_group} • {lessonState.knowledge_level}
+                    <h2 className="text-4xl font-bold leading-tight bg-gradient-to-r from-primary via-chart-2 to-primary bg-clip-text text-transparent">
+                      {displayState.topic}
+                    </h2>
+                    <p className="text-muted-foreground mt-2 text-lg flex items-center gap-3">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-background/50 text-sm font-medium">
+                        {displayState.age_group}
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-background/50 text-sm font-medium">
+                        {displayState.knowledge_level}
+                      </span>
                     </p>
                   </div>
-                  <Button onClick={handleNewLesson} variant="outline" data-testid="button-new-lesson">
+                  <Button 
+                    onClick={handleNewLesson} 
+                    variant="outline" 
+                    className="h-12 px-6 text-base font-semibold hover:bg-primary/10 hover:border-primary transition-all"
+                    data-testid="button-new-lesson"
+                  >
+                    <TrendingUp className="h-5 w-5 mr-2" />
                     New Lesson
                   </Button>
                 </div>
 
-                <WorkflowVisualizer currentStage={lessonState.current_processing} />
+                <WorkflowVisualizer currentStage={displayState.current_processing} />
 
-                {lessonState.lesson_plan && (
-                  <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-chart-2/5">
-                    <CardHeader>
-                      <CardTitle>Lesson Overview</CardTitle>
+                {displayState.lesson_plan && (
+                  <Card className="border-2 border-primary/30 shadow-lg bg-gradient-to-br from-primary/10 via-chart-2/10 to-primary/5 hover:shadow-xl transition-all">
+                    <CardHeader className="pb-4">
+                      <CardTitle className="text-2xl flex items-center gap-2">
+                        <Sparkles className="h-6 w-6 text-primary" />
+                        Lesson Overview
+                      </CardTitle>
                     </CardHeader>
-                    <CardContent>
-                      <p className="text-foreground/90 leading-relaxed">{lessonState.lesson_plan.overview}</p>
+                    <CardContent className="pt-0">
+                      <p className="text-foreground/90 text-lg leading-relaxed">{displayState.lesson_plan.overview}</p>
                     </CardContent>
                   </Card>
                 )}
 
-                <LessonDisplay lessonState={lessonState} />
+                <LessonDisplay lessonState={displayState} />
 
-                {lessonState.quiz && <QuizDisplay quiz={lessonState.quiz} topic={lessonState.topic} />}
+                {displayState.quiz && <QuizDisplay quiz={displayState.quiz} topic={displayState.topic} />}
               </div>
             )}
           </div>

@@ -517,28 +517,43 @@ class StreamingContentGenerator:
             ACTUAL VISUAL PRESENT:
             {visual_info}
 
-            Structure your response in an engaging format:
+            FORMAT REQUIREMENTS:
+            - Use markdown h2 headers (##) for each section title
+            - Add blank lines before and after each section for proper spacing
+            - Use descriptive paragraphs, not just bullet points in explanations
+            - Bold important terms inline within sentences
 
-            🎯 **Explanation**
-            - Use short paragraphs.
-            - Include analogies or simple examples.
+            Structure your response EXACTLY like this:
 
-            👁️ **Visual Guidance**
-            - Refer to specific elements in the visual.
-            - Use bullet points or numbered steps to describe flow.
+            ## 🎯 Explanation
 
-            💡 **Key Takeaways**
-            - Provide 3-4 bullet points.
-            - Highlight key words using **bold** or *italic*.
+            Write 2-3 engaging paragraphs explaining the concept. Use analogies and simple examples. Make it conversational and relatable to the audience.
 
-            🌍 **Real-world Connection**
-            - Use 1-2 short paragraphs.
-            - Include practical examples or relatable scenarios.
+            ## 👁️ Visual Guidance
 
-            ✨ Optional Tips:
-            - Include emojis to make sections visually distinct.
-            - Keep sentences short and easy to scan.
+            Start with an introductory sentence, then describe what's visible in the visual:
+            - Use bullet points to describe specific elements
+            - Reference colors, shapes, arrows, or labels visible
+            - Guide the reader's eye through the visual systematically
+            - Use phrases like "Notice the...", "See how...", "Look at..."
+
+            ## 💡 Key Takeaways
+
+            Provide 3-5 clear bullet points that summarize the main concepts:
+            - Each point should be a complete, actionable statement
+            - Bold key terms within the sentences
+            - Keep each point concise but meaningful
+
+            ## 🌍 Real-world Connection
+
+            Write 2-3 paragraphs connecting the concept to everyday life. Include:
+            - Practical examples students can relate to
+            - Why this matters in the real world
+            - How they might encounter this concept outside the classroom
+
+            Remember: Use complete sentences, proper paragraph structure, and maintain consistent spacing between sections.
             """)
+
 
             
             chain = prompt | llm

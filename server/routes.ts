@@ -4,14 +4,16 @@ import { WebSocketServer, WebSocket } from "ws";
 import { spawn } from "child_process";
 import path from "path";
 import * as dotenv from "dotenv";
+import fs from "fs/promises";
 
-// Load environment variables
 dotenv.config();
+
+// In-memory storage (or use a database like SQLite/MongoDB)
+const roadmapHistory: Map<string, any> = new Map();
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
   
-  // Create WebSocket server on /api/lesson-stream path
   const wss = new WebSocketServer({ server: httpServer, path: '/api/lesson-stream' });
   
   wss.on('connection', (ws: WebSocket) => {
@@ -38,7 +40,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
-  // Add roadmap generation endpoint
+  // Roadmap generation endpoint
   app.post("/api/roadmap/generate", async (req, res) => {
     try {
       const { topic } = req.body;
@@ -51,14 +53,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const pythonScript = path.join(process.cwd(), 'server', 'roadmap_generator.py');
       
-      // Create environment object with all current env vars plus ROADMAP_TOPIC
       const pythonEnv = {
         ...process.env,
         ROADMAP_TOPIC: topic,
-        // Ensure these are passed through
         GEMINI_API_KEY: process.env.GEMINI_API_KEY,
         GOOGLE_API_KEY: process.env.GOOGLE_API_KEY,
-        PYTHONUNBUFFERED: '1' // Ensure output is not buffered
+        PYTHONUNBUFFERED: '1'
       };
 
       console.log(`Python script path: ${pythonScript}`);
@@ -67,7 +67,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const python = spawn('python', [pythonScript], {
         env: pythonEnv,
         cwd: process.cwd(),
-        shell: true // Use shell to ensure proper env var passing on Windows
+        shell: true
       });
 
       let outputData = '';
@@ -97,22 +97,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         try {
-          // Clean output - remove any extra whitespace or newlines
-          const cleanOutput = outputData.trim();
-          const result = JSON.parse(cleanOutput);
+          const lines = outputData.trim().split('\n').filter(line => line.trim());
           
-          if (result.success) {
-            console.log('Roadmap generated successfully');
-            res.json({ roadmap: result.roadmap });
-          } else {
-            console.error('Roadmap generation failed:', result.error);
-            res.status(500).json({
-              error: result.error || "Failed to generate roadmap"
-            });
+          if (lines.length === 0) {
+            throw new Error('No output received from Python script');
           }
+          
+          const parsedData = lines.map(line => JSON.parse(line));
+          
+          const metadataObj = parsedData.find(item => item.type === 'metadata');
+          const phaseObjs = parsedData.filter(item => item.type === 'phase');
+          
+          if (!metadataObj) {
+            throw new Error('No metadata found in response');
+          }
+          
+          const roadmap = {
+            ...metadataObj.data,
+            phases: phaseObjs.map(p => p.data)
+          };
+          
+          // Save to history with timestamp and unique ID
+          const roadmapId = Date.now().toString();
+          const historyEntry = {
+            id: roadmapId,
+            topic,
+            roadmap,
+            createdAt: new Date().toISOString()
+          };
+          
+          roadmapHistory.set(roadmapId, historyEntry);
+          
+          console.log('Roadmap generated successfully');
+          res.json({ roadmap, roadmapId });
+          
         } catch (parseError: any) {
           console.error('JSON parse error:', parseError.message);
-          console.error('Raw output:', outputData);
+          console.error('Raw output:', outputData.substring(0, 1000));
           res.status(500).json({
             error: "Failed to parse roadmap response",
             details: parseError.message,
@@ -135,6 +156,97 @@ export async function registerRoutes(app: Express): Promise<Server> {
         error: "Failed to generate roadmap",
         details: error.message
       });
+    }
+  });
+
+  // NEW: Get roadmap history
+  app.get("/api/roadmap/history", async (req, res) => {
+    try {
+      const history = Array.from(roadmapHistory.values())
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      
+      res.json({ history });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // NEW: Get specific roadmap from history
+  app.get("/api/roadmap/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const roadmapEntry = roadmapHistory.get(id);
+      
+      if (!roadmapEntry) {
+        return res.status(404).json({ error: "Roadmap not found" });
+      }
+      
+      res.json(roadmapEntry);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // NEW: Generate detailed content for a specific topic
+  app.post("/api/roadmap/generate-topic-content", async (req, res) => {
+    try {
+      const { topic, phase, topicTitle } = req.body;
+
+      if (!topic || !topicTitle) {
+        return res.status(400).json({ error: "Topic and topicTitle are required" });
+      }
+
+      console.log(`Generating content for: ${topicTitle} in ${phase}`);
+
+      const pythonScript = path.join(process.cwd(), 'server', 'topic_content_generator.py');
+      
+      const pythonEnv = {
+        ...process.env,
+        ROADMAP_TOPIC: topic,
+        PHASE_INFO: phase,
+        TOPIC_TITLE: topicTitle,
+        GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+        PYTHONUNBUFFERED: '1'
+      };
+      
+      const python = spawn('python', [pythonScript], {
+        env: pythonEnv,
+        cwd: process.cwd(),
+        shell: true
+      });
+
+      let outputData = '';
+      let errorData = '';
+
+      python.stdout.on('data', (data) => {
+        outputData += data.toString();
+      });
+
+      python.stderr.on('data', (data) => {
+        errorData += data.toString();
+      });
+
+      python.on('close', (code) => {
+        if (code !== 0) {
+          return res.status(500).json({
+            error: "Failed to generate topic content",
+            details: errorData
+          });
+        }
+
+        try {
+          const result = JSON.parse(outputData.trim());
+          res.json(result);
+        } catch (error: any) {
+          res.status(500).json({
+            error: "Failed to parse content",
+            details: error.message
+          });
+        }
+      });
+
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
     }
   });
   

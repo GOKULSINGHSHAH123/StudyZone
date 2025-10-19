@@ -1,7 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, Circle, Clock, BookOpen, Target } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { CheckCircle2, Clock, BookOpen, Target, ChevronRight, Loader2 } from "lucide-react";
+import { useState } from "react";
+import ReactMarkdown from "react-markdown";
 
 interface RoadmapPhase {
   phase: string;
@@ -25,6 +27,49 @@ interface RoadmapDisplayProps {
 }
 
 export function RoadmapDisplay({ roadmap }: RoadmapDisplayProps) {
+  const [expandedTopic, setExpandedTopic] = useState<string | null>(null);
+  const [topicContent, setTopicContent] = useState<{ [key: string]: string }>({});
+  const [loadingTopic, setLoadingTopic] = useState<string | null>(null);
+
+  const handleTopicClick = async (topic: string, phase: string) => {
+    const topicKey = `${phase}-${topic}`;
+    
+    // Toggle if already expanded
+    if (expandedTopic === topicKey) {
+      setExpandedTopic(null);
+      return;
+    }
+    
+    setExpandedTopic(topicKey);
+    
+    // Load content if not already loaded
+    if (!topicContent[topicKey]) {
+      setLoadingTopic(topicKey);
+      
+      try {
+        const response = await fetch("/api/roadmap/generate-topic-content", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            topic: roadmap.topic,
+            phase: phase,
+            topicTitle: topic
+          })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          setTopicContent(prev => ({ ...prev, [topicKey]: data.content }));
+        }
+      } catch (error) {
+        console.error("Error loading topic content:", error);
+      } finally {
+        setLoadingTopic(null);
+      }
+    }
+  };
+
   return (
     <div className="space-y-8 animate-slide-in">
       {/* Header Section */}
@@ -64,20 +109,17 @@ export function RoadmapDisplay({ roadmap }: RoadmapDisplayProps) {
 
       {/* Roadmap Phases - Timeline View */}
       <div className="relative">
-        {/* Timeline Line */}
         <div className="absolute left-8 top-0 bottom-0 w-0.5 bg-gradient-to-b from-primary via-chart-2 to-chart-3" />
 
         <div className="space-y-8">
           {roadmap.phases.map((phase, index) => (
             <div key={index} className="relative pl-20">
-              {/* Phase Number Circle */}
               <div className="absolute left-0 flex items-center justify-center">
                 <div className="h-16 w-16 rounded-full bg-gradient-to-br from-primary to-chart-2 flex items-center justify-center text-white font-bold text-xl shadow-lg">
                   {index + 1}
                 </div>
               </div>
 
-              {/* Phase Card */}
               <Card className="hover-elevate border-card-border">
                 <CardHeader>
                   <div className="flex items-start justify-between">
@@ -94,26 +136,54 @@ export function RoadmapDisplay({ roadmap }: RoadmapDisplayProps) {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {/* Topics */}
                   <div>
                     <h4 className="font-semibold mb-3 flex items-center gap-2">
                       <BookOpen className="h-4 w-4 text-primary" />
-                      What You'll Learn
+                      What You'll Learn (Click to expand)
                     </h4>
                     <div className="grid gap-2">
-                      {phase.topics.map((topic, topicIndex) => (
-                        <div
-                          key={topicIndex}
-                          className="flex items-start gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
-                        >
-                          <CheckCircle2 className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                          <span className="text-sm">{topic}</span>
-                        </div>
-                      ))}
+                      {phase.topics.map((topic, topicIndex) => {
+                        const topicKey = `${phase.phase}-${topic}`;
+                        const isExpanded = expandedTopic === topicKey;
+                        const isLoading = loadingTopic === topicKey;
+                        
+                        return (
+                          <div key={topicIndex} className="space-y-2">
+                            <button
+                              onClick={() => handleTopicClick(topic, phase.phase)}
+                              className="w-full flex items-start gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors text-left group"
+                            >
+                              <CheckCircle2 className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                              <span className="text-sm flex-1">{topic}</span>
+                              <ChevronRight 
+                                className={`h-5 w-5 text-muted-foreground shrink-0 transition-transform ${
+                                  isExpanded ? 'rotate-90' : ''
+                                }`}
+                              />
+                            </button>
+                            
+                            {isExpanded && (
+                              <Card className="ml-8 border-primary/20">
+                                <CardContent className="pt-4">
+                                  {isLoading ? (
+                                    <div className="flex items-center justify-center py-8">
+                                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                                      <span className="ml-2 text-sm">Loading content...</span>
+                                    </div>
+                                  ) : topicContent[topicKey] ? (
+                                    <div className="prose prose-sm max-w-none dark:prose-invert">
+                                      <ReactMarkdown>{topicContent[topicKey]}</ReactMarkdown>
+                                    </div>
+                                  ) : null}
+                                </CardContent>
+                              </Card>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
 
-                  {/* Resources */}
                   {phase.resources && phase.resources.length > 0 && (
                     <div>
                       <h4 className="font-semibold mb-2 text-sm text-muted-foreground">
